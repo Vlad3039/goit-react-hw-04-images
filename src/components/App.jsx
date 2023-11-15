@@ -1,8 +1,7 @@
-import React, { Component } from 'react';
+import { useState, useEffect } from 'react';
 import Notiflix from 'notiflix';
 
 import { fetchData, notifySettings } from './fetch';
-
 import { Container } from './App.styled';
 import { StartText } from './StartText/StartText';
 import { Searchbar } from './Searchbar/Searchbar';
@@ -12,62 +11,50 @@ import { Modal } from './ Modal/Modal';
 import { Btn } from './Button/Button';
 import DefaultPic from '../images/defaultPic.jpg';
 
-export class App extends Component {
-  state = {
-    searchQuery: '',
-    page: 1,
-    picsArr: [],
-    isLoading: false,
-    showModal: false,
-    showLoadMoreBtn: false,
-    largeImageURL: DefaultPic,
-    imageTags: null,
-  };
+export const App = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [picsArr, setPicsArr] = useState([]);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [showLoadMoreBtn, setShowLoadMoreBtn] = useState(false);
+  const [largeImageURL, setLargeImageURL] = useState(DefaultPic);
+  const [imageTags, setImageTags] = useState(null);
 
-  componentDidUpdate(prevProps, prevState) {
-    if (
-      this.state.searchQuery !== prevState.searchQuery ||
-      this.state.page !== prevState.page
-    ) {
-      this.setState({ isLoading: true });
-      this.fetchQuery(this.state.searchQuery, this.state.page);
+  useEffect(() => {
+    if (!searchQuery) {
+      return;
     }
-  }
+    setIsLoading(true);
+    fetchQuery(searchQuery, page);
+  }, [searchQuery, page]);
 
-  onSubmit = FormData => {
-    const { query } = FormData;
-    this.setState({ searchQuery: query, page: 1, picsArr: [] });
-  };
-
-  async fetchQuery(query, page) {
+  async function fetchQuery(query, page) {
     try {
       await fetchData(query, page).then(result => {
-        const { data } = result;
-        const { totalHits: total, hits: picsArr } = data;
-
-        const picsLeft = total - 12 * this.state.page;
+        const data = result.data;
+        const total = data.totalHits;
+        const picsArr = data.hits;
+        const picsLeft = total - 12 * page;
 
         if (picsArr.length === 0) {
-          this.setState({ showLoadMoreBtn: false });
+          setShowLoadMoreBtn(false);
           Notiflix.Notify.failure(
             'Sorry, there are no images matching your search query. Please try again.',
             notifySettings
           );
           return;
         } else {
-          this.setState(prevState => ({
-            picsArr: [...prevState.picsArr, ...picsArr],
-          }));
+          setPicsArr(PrevPicsArr => [...PrevPicsArr, ...picsArr]);
         }
 
-        if (picsArr.length > 0 && this.state.page === 1) {
+        if (picsArr.length > 0 && page === 1) {
           Notiflix.Notify.success(
             `Hooray! We found ${total} images.`,
             notifySettings
           );
         }
-
-        this.setState({ showLoadMoreBtn: picsLeft > 0 });
+        picsLeft > 0 ? setShowLoadMoreBtn(true) : setShowLoadMoreBtn(false);
       });
     } catch (error) {
       console.log(error);
@@ -76,56 +63,47 @@ export class App extends Component {
         notifySettings
       );
     } finally {
-      this.setState({ isLoading: false });
+      setIsLoading(false);
     }
   }
 
-  toggleModal = (largeImageURL, imageTags) => {
-    this.setState(prevState => ({
-      showModal: !prevState.showModal,
-      largeImageURL: largeImageURL,
-      imageTags: imageTags,
-    }));
+  const onSubmit = query => {
+    setSearchQuery(query);
+    setPicsArr([]);
+    setPage(1);
   };
 
-  onLoadMoreBtnClick = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
+  const onLoadMoreBtnClick = () => {
+    setPage(prevPage => prevPage + 1);
   };
 
-  render() {
-    return (
-      <>
-        <Searchbar onSubmit={this.onSubmit} />
+  const toggleModal = (largeImageURL, imageTags) => {
+    setShowModal(!showModal);
+    setLargeImageURL(largeImageURL);
+    setImageTags(imageTags);
+  };
 
-        {this.state.picsArr.length === 0 && <StartText />}
+  return (
+    <>
+      <Searchbar onSubmit={onSubmit} />
+      {picsArr.length === 0 && <StartText />}
+      <Container>
+        <ImageGallery pics={picsArr} showModal={toggleModal} />
 
-        <Container>
-          <ImageGallery
-            pics={this.state.picsArr}
-            showModal={this.toggleModal}
-          />
-
-          {this.state.showLoadMoreBtn && (
-            <Btn
-              text="Load more"
-              status="load"
-              onClick={this.onLoadMoreBtnClick}
-              onLoaderPlay={this.state.isLoading}
-            />
-          )}
-        </Container>
-        {this.state.isLoading && <Loader />}
-
-        {this.state.showModal && (
-          <Modal
-            src={this.state.largeImageURL}
-            alt={this.state.imageTags}
-            closeModal={this.toggleModal}
+        {showLoadMoreBtn && (
+          <Btn
+            text="Load more"
+            status="load"
+            onClick={onLoadMoreBtnClick}
+            onLoaderPlay={isLoading}
           />
         )}
-      </>
-    );
-  }
-}
+      </Container>
+      {isLoading && <Loader />}
+
+      {showModal && (
+        <Modal src={largeImageURL} alt={imageTags} closeModal={toggleModal} />
+      )}
+    </>
+  );
+};
