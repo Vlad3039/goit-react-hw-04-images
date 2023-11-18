@@ -22,21 +22,11 @@ export const App = () => {
   const [imageTags, setImageTags] = useState(null);
 
   useEffect(() => {
-    if (!searchQuery) {
-      return;
-    }
-    setIsLoading(true);
-    fetchQuery(searchQuery, page);
-  }, [searchQuery, page]);
-
-  async function fetchQuery(query, page) {
-    try {
-      await fetchData(query, page).then(result => {
-        const data = result.data;
-        const total = data.totalHits;
-        const picsArr = data.hits;
-        const picsLeft = total - 12 * page;
-
+    const fetchQuery = async () => {
+      try {
+        const { data } = await fetchData(searchQuery, page);
+        const total = data?.totalHits || 0;
+        const picsArr = data?.hits || [];
         if (picsArr.length === 0) {
           setShowLoadMoreBtn(false);
           Notiflix.Notify.failure(
@@ -45,27 +35,31 @@ export const App = () => {
           );
           return;
         } else {
-          setPicsArr(PrevPicsArr => [...PrevPicsArr, ...picsArr]);
+          setPicsArr(prevPicsArr => [...prevPicsArr, ...picsArr]);
         }
-
         if (picsArr.length > 0 && page === 1) {
           Notiflix.Notify.success(
             `Hooray! We found ${total} images.`,
             notifySettings
           );
         }
+        const picsLeft = total - 12 * page;
         picsLeft > 0 ? setShowLoadMoreBtn(true) : setShowLoadMoreBtn(false);
-      });
-    } catch (error) {
-      console.log(error);
-      Notiflix.Notify.failure(
-        'Sorry, something went wrong, please try again later',
-        notifySettings
-      );
-    } finally {
-      setIsLoading(false);
+      } catch (error) {
+        console.log(error);
+        Notiflix.Notify.failure(
+          'Sorry, something went wrong, please try again later',
+          notifySettings
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (searchQuery) {
+      setIsLoading(true);
+      fetchQuery();
     }
-  }
+  }, [searchQuery, page]);
 
   const onSubmit = query => {
     setSearchQuery(query);
