@@ -22,12 +22,13 @@ export const App = () => {
   const [imageTags, setImageTags] = useState(null);
 
   useEffect(() => {
+    if (!searchQuery) return;
     const fetchQuery = async () => {
+      setIsLoading(true);
       try {
-        const { data } = await fetchData(searchQuery, page);
-        const total = data?.totalHits || 0;
-        const picsArr = data?.hits || [];
-        if (picsArr.length === 0) {
+        const { totalHits, hits } = await fetchData(searchQuery, page);
+
+        if (hits.length === 0) {
           setShowLoadMoreBtn(false);
           Notiflix.Notify.failure(
             'Sorry, there are no images matching your search query. Please try again.',
@@ -35,18 +36,17 @@ export const App = () => {
           );
           return;
         } else {
-          setPicsArr(prevPicsArr => [...prevPicsArr, ...picsArr]);
+          setPicsArr(prevPicsArr => [...prevPicsArr, ...hits]);
         }
-        if (picsArr.length > 0 && page === 1) {
+        if (hits.length > 0 && page === 1) {
           Notiflix.Notify.success(
-            `Hooray! We found ${total} images.`,
+            `Hooray! We found ${totalHits} images.`,
             notifySettings
           );
         }
-        const picsLeft = total - 12 * page;
+        const picsLeft = totalHits - 12 * page;
         picsLeft > 0 ? setShowLoadMoreBtn(true) : setShowLoadMoreBtn(false);
       } catch (error) {
-        console.log(error);
         Notiflix.Notify.failure(
           'Sorry, something went wrong, please try again later',
           notifySettings
@@ -55,10 +55,8 @@ export const App = () => {
         setIsLoading(false);
       }
     };
-    if (searchQuery) {
-      setIsLoading(true);
-      fetchQuery();
-    }
+
+    fetchQuery();
   }, [searchQuery, page]);
 
   const onSubmit = query => {
